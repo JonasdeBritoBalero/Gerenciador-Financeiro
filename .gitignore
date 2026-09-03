@@ -10,6 +10,9 @@ __pycache__/
 client_secret.json
 token.json
 
+#
+*.bd
+
 # Distribution / packaging
 .Python
 build/
