@@ -10,8 +10,8 @@ __pycache__/
 client_secret.json
 token.json
 
-#
-*.bd
+# Banco de dados
+*.db
 
 # Distribution / packaging
 .Python
