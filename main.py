@@ -1,3 +1,4 @@
+from core.app import tratamento_dados_atual
 
 # Menu:
 def main():
@@ -23,6 +24,8 @@ O que deseja fazer:
 
 
 if __name__ == "__main__":
-    main()
+    #main()
+    ativos = {"MXRF11": 9.74}
+    tratamento_dados_atual(ativos)
 
 # Passo 1: Pegar os valores atuais dos ativos.
