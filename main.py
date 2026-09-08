@@ -1,4 +1,4 @@
-from core.app import tratamento_dados_atual
+from core.app import tratamento_dados_atual, init
 
 # Menu:
 def main():
@@ -10,22 +10,14 @@ O que deseja fazer:
 3 - Venda de ativos.
 4 - Sair.""")
         opcao = int(input("Opção:"))
-        if opcao == 1:
-            pass
-        elif opcao == 2:
-            pass
-        elif opcao == 3:
-            pass
-        elif opcao == 4:
-            print("Saindo do Gerenciador Financeiro!")
-            break
-        else:
-            print("Opção inválida!")
+        continuar = init(opcao)
 
+        if not continuar:
+            break
 
 if __name__ == "__main__":
-    #main()
-    ativos = {"MXRF11": 9.74}
-    tratamento_dados_atual(ativos)
+    main()
+    #ativos = {"MXRF11": 9.74}
+    #tratamento_dados_atual(ativos)
 
 # Passo 1: Pegar os valores atuais dos ativos.
