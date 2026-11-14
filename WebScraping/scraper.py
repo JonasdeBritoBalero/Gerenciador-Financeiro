@@ -4,6 +4,7 @@ from time import sleep
 from selenium.webdriver.support import expected_conditions as EC
 from datetime import datetime
 
+# ativos é uma lista com os ativos da carteira EX: ativos = ["MXRF11", "VRTA11"]
 def pegar_ativo_completo(ativos):
     precos = {}
     dividendos = {}
@@ -60,5 +61,46 @@ def pegar_ativo_completo(ativos):
             except Exception as e:
                 navegador.get("https://investidor10.com.br/")
                 print(f"Erro: {e}")
-    
+    navegador.quit()
     return precos, dividendos
+
+
+def verificar_tp_ativo(ativo):
+    # Passo 1: Acessar o navegador e direciona para o site.
+    navegador = webdriver.Chrome()
+    
+    navegador.maximize_window()
+    navegador.get("https://investidor10.com.br/")
+    sucesso = False
+    acao = False
+    while not sucesso:
+        try:
+            if acao:
+                sucesso = True
+                tipo = "Ação"
+                break
+            # Passo 2: pesquisa do ativo
+            pesquisa = navegador.find_element(By.XPATH, "//*[@id='search_button']/button")
+            pesquisa.click()
+            sleep(5)
+            navegador.find_element(By.XPATH, "/html/body/div[4]/header/div[2]/div/div/form/div/span/input[2]").send_keys(ativo)
+            sleep(2)
+            navegador.find_element(By.XPATH, "//*[@id='btn-search-desktop']").click()
+            sleep(5)
+            navegador.find_element(By.XPATH, "//*[@id='searchPage']/section/div/div[3]/div/div[2]/div[2]/a").click()
+            sleep(2)
+            # Passo 3: Pega o valor do ativo
+            nome = navegador.find_element(By.XPATH, "//*[@id='table-indicators']/div[1]/div[2]/div/span") # valor da ação/FIIS
+            nome = nome.text.split()
+            if "IMOBILIÁRIO" in nome or "IMOBILIARIO" in nome:
+                sucesso = True
+                tipo = "FII"
+                break
+        except Exception as e:
+            acao = True
+    navegador.quit()
+    return tipo
+
+# teste da função
+#print(pegar_ativo_completo(["TAEE4"]))
+#print(verificar_tp_ativo("bbse3"))

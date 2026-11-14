@@ -24,7 +24,7 @@ load_dotenv()
 
 # The ID and range of a sample spreadsheet.
 SAMPLE_SPREADSHEET_ID = os.getenv("SAMPLE_SPREADSHEET_ID") # id da planilha
-SAMPLE_RANGE_NAME = "!A1:C15" # espaço da planilha que sera verificada, intervalo de celulas
+# SAMPLE_RANGE_NAME = "!A1:C15"  espaço da planilha que sera verificada, intervalo de celulas
 
 def autenticacao_google():
   creds = None
@@ -49,8 +49,25 @@ def autenticacao_google():
   return creds
 
 
-def manipulacao_sheet():
+
+# atualiza os valores da carteira de todos os ativos
+def atualizacao_ativos(valoresST):
   creds = autenticacao_google()
+  ''' 1 - MXRF11
+    2 - VRTA11
+    3 - TGAR11
+    4 - BBAS3
+    5 - BBSE3
+    6 - LEVE3
+    7 - TAEE4
+  '''
+  ordem = ['MXRF11', 'VRTA11', 'TGAR11', 'BBAS3', 'BBSE3', 'LEVE3', 'TAEE4']
+
+  valoresST = [valoresST[ativo] for ativo in ordem]
+  # valores = [10.00]]
+  valores = []
+  for v in valoresST:
+    valores.append([str(v).replace(".", ",")])
   # LEitura e escrita da planilha funciona  da seguinte forma:
   # planilha = [[coluna1, coluna2, coluna3], -> linha 1
   #            [coluna1, coluna2, coluna 3]] -> linha 2
@@ -59,36 +76,59 @@ def manipulacao_sheet():
 
     # Call the Sheets API
     sheet = service.spreadsheets()
-    result = (
-        sheet.values()
-        .get(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=SAMPLE_RANGE_NAME)
-        .execute()
-    )
-    values = result.get("values", [])
+    SAMPLE_RANGE_NAME = "Renda_variavel!E21:E27"
+    result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
+                              range=SAMPLE_RANGE_NAME).execute()
+    values = result.get('values', [])
 
-    if not values:
-      print("No data found.")
-      return
-
-    print("Name, Major:")
-    for row in values:
-      # Print columns A and E, which correspond to indices 0 and 4.
-      print(f"{row}")
-    # Adicionar valores no google sheet
-    valores_adicionar = [[""],
-                         [""],
-                         [""]]
-    # valueInputOptions="USER_ENTERED" -> você pode colocar valores ou formulas na celula
-    result = (
-            sheet.values()
-            .update(spreadsheetId=SAMPLE_SPREADSHEET_ID, range="2026:C39", valueInputOption="USER_ENTERED", body={"values": valores_adicionar})
-            .execute()
-        )
+    # adicionar/editar valores no Google Sheets
+    result = sheet.values().update(spreadsheetId=SAMPLE_SPREADSHEET_ID,
+                                range=SAMPLE_RANGE_NAME, valueInputOption="USER_ENTERED",
+                                    body={"values": valores}).execute()
   except HttpError as err:
     print(err)
 
-if __name__ == "__main__":
-  manipulacao_sheet()
+COLUNAS = {"MXRF11":"B", "VRTA11":"C", "TGAR11":"D", "BBAS3":"E", "BBSE3":"F", "LEVE3":"G", "TAEE4":"H"}
+LINHAS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+# ativos = {"MXRF11": ['RENDIMENTO', "15/01/2025", 0.1]}
+# Inserir os rendimentos que serão recebidos na tabela d, de forma individual
+def Inserir_dividendos_sheets(ativo, data, valor):
+  creds = autenticacao_google()
+  try:
+      service = build("sheets", "v4", credentials=creds)
+
+      sheet = service.spreadsheets() # planilha
+      # data = "2026-08-18"
+      linha = LINHAS[int(data.split('-')[1])-1]
+      coluna = COLUNAS[ativo]
+      SAMPLE_RANGE_NAME2 = f"Renda_variavel!{coluna}{linha}"
+
+      # procura se existe algum valor na celula
+      result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
+                              range=SAMPLE_RANGE_NAME2).execute()
+      values = result.get('values', [])
+      # values = [ ["R$ 50,00"]]
+      # se existir ele vai pegar e somar
+      if values:
+        # precisa fazer o tratamento do values para conseguir fazer a soma
+        valor_final = valor + float(values[0][0].translate(str.maketrans({
+        'R': '',
+        '$': '',
+        ',': '.'
+        })))
+      else:
+        valor_final = valor
+      valor_final = [[valor_final]] # valor para ser inserido na tabela
+      # inseri o valor novo na tabela
+      result = sheet.values().update(spreadsheetId=SAMPLE_SPREADSHEET_ID,
+                              range=SAMPLE_RANGE_NAME2, valueInputOption="USER_ENTERED",
+                                  body={"values": valor_final}).execute()
+
+
+
+  except Exception as err:
+      print(err)
+
 
 # Passo 2: Definir qual planilha vai utilizar
 

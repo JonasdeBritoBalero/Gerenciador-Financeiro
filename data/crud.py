@@ -1,4 +1,6 @@
 from datetime import datetime
+from WebScraping.scraper import verificar_tp_ativo
+from sheets.sheets import Inserir_dividendos_sheets
 import sqlite3
 
 # Criação do CRUD
@@ -13,8 +15,8 @@ def inserir_ativo(ativo, tpativo, valor, quant):
     conexao.commit()
     conexao.close()
 # criar uma ordem de compra ou venda
-def inserir_ordem(ativo, tpativo, ordem, quant, valor, data=None):
-    
+def inserir_ordem(ativo, ordem, quant, valor, data=None):
+    print(data, " - crud")
     conexao = sqlite3.connect("Finanças.db")
     cursor = conexao.cursor()
     
@@ -22,15 +24,29 @@ def inserir_ordem(ativo, tpativo, ordem, quant, valor, data=None):
     # Caso não seja preenchido a data é considerado a data que foi feito o apontamento
     if data is None:
         data = datetime.now().date()
-    cursor.execute("INSERT INTO OrderBooks (Ativo, TpAtivo, Ordem, Data, Quantidade, VlTotal) VALUES (?, ?, ?, ?, ?)", (ativo, tpativo, ordem, data, quant, valor))
+    cursor.execute("INSERT INTO OrderBooks (Ativo, Ordem, Data, Quantidade, VlTotal) VALUES (?, ?, ?, ?, ?)", (ativo, ordem, data, quant, valor))
     # Quando comprar um ativo já e acrescentado na carteira
     if ordem == "C":
-        cursor.execute("""
-        UPDATE Wallet
-        SET quantidade = quantidade + ?,
-            valor_total = valor_total + ?
-        where Ativo = ?
-        """, (quant, valor, ativo))
+        # Verificar se o ativo existe na carteira
+        ativos = read_nome_ativos()
+        existe = ativo in ativos
+        # se existir
+        if existe:
+            cursor.execute("""
+            UPDATE Wallet
+            SET quantidade = quantidade + ?,
+                valor_total = valor_total + ?
+            where Ativo = ?
+            """, (quant, valor, ativo))
+            conexao.commit()
+            conexao.close()
+        # se não existir
+        else:
+            conexao.commit()
+            conexao.close()
+            tpativo = verificar_tp_ativo(ativo)
+            inserir_ativo(ativo, tpativo, valor, quant)
+            
     # Quando vender um ativo já é retirado da carteira
     elif ordem == "V":
         cursor.execute("""
@@ -38,45 +54,38 @@ def inserir_ordem(ativo, tpativo, ordem, quant, valor, data=None):
         SET quantidade = quantidade - ?,
             valor_total = valor_total - ?
         where Ativo = ?
-        """, (quant, valor, ativo))
-        
-    conexao.commit()
-    conexao.close()
+        """, (quant, valor, ativo))    
+        conexao.commit()
+        conexao.close()
 # Valor atual do ativo
-def inserir_atual(Ativo, TpAtivo, VUA, VTA, diferenca, data=None):
+def inserir_atual(Ativo, VUA, VTA, diferenca, data=None):
     
     conexao = sqlite3.connect("Finanças.db")
     cursor = conexao.cursor()
     
     if data is None:
-        data = datetime.now().date()
-    cursor.execute("INSERT INTO CurrentValue (Ativo, TpAtivo, Data, VUAtual, VTAtual, diferenca) VALUES (?, ?, ?, ?, ?)", (Ativo,TpAtivo, data, VUA, VTA,diferenca))
+        #data = datetime.now().date()
+        data = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute("INSERT INTO CurrentValue (Ativo, Data, VUAtual, VTAtual, diferenca) VALUES (?, ?, ?, ?, ?)", (Ativo, data, VUA, VTA,diferenca))
     
     conexao.commit()
     conexao.close()
-# Proventos dos ativos
-def inserir_dividendo(ativo, tpativo, tpearn, data_p, valor_u, valor_t):
+# InserirProventos dos ativos
+def inserir_dividendo(ativo, tpearn, data_p, valor_u, valor_t):
     # tabela -> FIIS ou Acoes
     conexao = sqlite3.connect("Finanças.db")
     cursor = conexao.cursor()
-    mes = data_p[0:8]+'%'
-    cursor.execute(f"SELECT Ativo, TpEarnings, DataPag, ProUnitario FROM Earnings WHERE DataPag LIKE '{mes}' AND ativo = '{ativo}'")
-    dadosativo = cursor.fetchall()
-    print(dadosativo)
-    adicionar = True
-    for d in dadosativo:
-        if d[1] == tpearn and d[3] == valor_u:
-            print("Dividendo adcionado!")
-            adicionar = False
-            break
+    # verificar se o dividendo ja foi adicionado no BD
+    adicionar = verificando_dividendo(cursor, ativo, tpearn, data_p, valor_u)
     
     if adicionar:
-        cursor.execute(f"INSERT INTO Earnings (Ativo, TpAtivo, TpEarnings, DataPag, ProUnitario, ProTotal) VALUES (?, ?, ?, ?, ?, ?)", (ativo, tpativo, tpearn, data_p, valor_u, valor_t))
+        # inseri o dividendo no banco de dados
+        cursor.execute(f"INSERT INTO Earnings (Ativo, TpEarnings, DataPag, ProUnitario, ProTotal) VALUES (?, ?, ?, ?, ?)", (ativo, tpearn, data_p, valor_u, valor_t))
         # Atualização da planilha
-        # atualizar_rendimento(ativo, data_p, valor_t)
-        print("Adcionado com sucesso!")
+        Inserir_dividendos_sheets(ativo, data_p, valor_t)
+        print("Adicionando na banco de dados!")
     else:
-        print("Já foi adicionado no banco de dados!")
+        print("Já existe no banco de dados")
     
     conexao.commit()
     conexao.close()
@@ -103,6 +112,44 @@ def read_nome_ativos():
     ativos = [linha[0] for linha in dados]
     return ativos
 
+def verificando_dividendo(cursor, ativo, tpearn, data, valor_u):
+    mes = data[0:8]+'%'
+    cursor.execute("SELECT Ativo, TpEarnings, DataPag, ProUnitario FROM Earnings WHERE DataPag LIKE ? AND ativo = ?", (mes, ativo))
+    dadosativo = cursor.fetchall()
+    print(dadosativo)
+    adicionar = True
+    for d in dadosativo:
+        if d[1] == tpearn and d[3] == valor_u:
+            # verifica se o dividendo ja esta no banco de dados
+            adicionar = False
+            break
+    return adicionar
+
+def visualizao_carteira():
+    conexao = sqlite3.connect("Finanças.db")
+    cursor = conexao.cursor()
+    cursor.execute("""
+        SELECT
+            W.Ativo,
+            W.Quantidade,
+            W.ValorTotal,
+            CV.VTAtual,
+            CV.Diferenca,
+            CV.Data
+        FROM Wallet W
+        JOIN CurrentValue CV
+            ON CV.Ativo = W.Ativo
+        WHERE CV.Data = (
+            SELECT MAX(CV2.Data)
+            FROM CurrentValue CV2
+            WHERE CV2.Ativo = W.Ativo
+        )
+    """)
+    dados = cursor.fetchall()
+    conexao.commit()
+    conexao.close()
+    return dados
+
 # u -> Update -> Opcional incialmente
 
 # D -> Delete
@@ -114,6 +161,13 @@ def del_cow(table, ID):
     conexao.commit()
     conexao.close()
 
-
+def del_all_cow(table):
+    conexao = sqlite3.connect("Finanças.db")
+    cursor = conexao.cursor()
+    cursor.execute(f"DELETE FROM {table}")
+    conexao.commit()
+    conexao.close()
 
 #print(read_table("Wallet"))
+#visualizao_carteira()
+#del_all_cow("Earnings")

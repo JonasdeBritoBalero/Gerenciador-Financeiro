@@ -21,7 +21,6 @@ cursor.execute("""
 CREATE TABLE IF NOT EXISTS OrderBooks (
     ID INTEGER PRIMARY KEY AUTOINCREMENT,
     Ativo TEXT NOT NULL,
-    TpAtivo TEXT,
     Ordem TEXT CHECK(Ordem IN('C', 'V')), 
     Data TEXT, 
     Quantidade INTEGER,
@@ -35,7 +34,6 @@ cursor.execute("""
 CREATE TABLE IF NOT EXISTS CurrentValue (
     ID INTEGER PRIMARY KEY AUTOINCREMENT,
     Ativo TEXT NOT NULL,
-    TpAtivo TEXT,
     Data TEXT,
     VUAtual REAL,
     VTAtual REAL,
@@ -53,7 +51,6 @@ cursor.execute("""
 CREATE TABLE IF NOT EXISTS Earnings (
     ID INTEGER PRIMARY KEY AUTOINCREMENT,
     Ativo TEXT NOT NULL,
-    TpAtivo TEXT,
     TpEarnings TEXT,
     DataPag TEXT,
     ProUnitario REAL,
